@@ -1,0 +1,3 @@
+# Roblox standard library, plus TestEZ's describe/it/expect globals for the specs in tests/
+# (testez.yml is selene's official template: https://kampfkarren.github.io/selene/roblox.html)
+std = "roblox+testez"

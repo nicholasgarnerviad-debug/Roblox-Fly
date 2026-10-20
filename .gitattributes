@@ -1,0 +1,11 @@
+# Keep source files LF on every machine (this one has core.autocrlf=true), so
+# `stylua --check` doesn't trip over CRLF checkouts.
+*.luau text eol=lf
+*.lua text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+
+*.rbxl binary
+*.rbxm binary

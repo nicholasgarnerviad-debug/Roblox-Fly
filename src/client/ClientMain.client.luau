@@ -1,0 +1,25 @@
+-- Patchwork Skies client bootstrap.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+ReplicatedStorage:WaitForChild("GameState")
+ReplicatedStorage:WaitForChild("Remotes")
+
+local Controllers = script.Parent:WaitForChild("Controllers")
+local HUD = require(Controllers.HUDController)
+local FlightPanel = require(Controllers.FlightPanel)
+local ToolController = require(Controllers.ToolController)
+local PilotController = require(Controllers.PilotController)
+local FxController = require(Controllers.FxController)
+local CombatController = require(Controllers.CombatController)
+local HotbarController = require(Controllers.HotbarController)
+local PromptController = require(Controllers.PromptController)
+
+HUD.start()
+HotbarController.start(HUD)
+PromptController.start()
+FlightPanel.start(HUD)
+ToolController.start(HUD)
+PilotController.start(HUD)
+FxController.start()
+CombatController.start()
+
+HUD.toast("Welcome to Patchwork Skies! Read Old Gus's board in the hangar.", "info")

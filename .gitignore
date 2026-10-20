@@ -1,0 +1,17 @@
+# Wally installs (recreate with `wally install`)
+/Packages/
+/ServerPackages/
+/DevPackages/
+
+# Build output and generated files
+/build/
+sourcemap.json
+roblox.yml
+
+# Studio lock files and local tooling state
+*.rbxl.lock
+*.rbxlx.lock
+ruvector.db
+
+# Local place backups
+/backups/
