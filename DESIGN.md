@@ -77,6 +77,12 @@ the code behind `PartTypes.TWIG_PLACEMENT`, switched off.
   - **Tail:** a swept fin with a striped rudder on brass hinges.
   - **Materials:** the frame takes the build material, and Scrap or Tin turns the canvas to plate. Unpainted canvas is cream.
 - **The Flag** is a Jolly Roger built from parts: a swallowtail, a skull and crossbones, and a halyard rope.
+- **Balloons** are gored hot-air envelopes, built from 10 gores × 9 bands of cloth panels that follow a teardrop profile (`ENVELOPE` in PartBuilder).
+  - **Look:** alternate gores are a shade darker, and every panel's tone varies a little for a patchwork feel.
+  - **Seams:** a darker backing behind each panel shows between the gores as seams.
+  - **Stripe colour:** it paints one band of panels, the crown cap and the throat skirt.
+  - **Patches:** sometimes the balloon gets a sewn-on scrap patch.
+  - **Raycasts:** they hit a hidden core inside the envelope.
 - **Mirror mode** places a matching part on the other side of the center line.
 - Every part can be **painted** with any palette color. Balloons take a second colour for their stripe (`PartTypes` `trim = true`; stored as `blueprint[key].trim`).
 - Engines need open air in front of them for the propeller.

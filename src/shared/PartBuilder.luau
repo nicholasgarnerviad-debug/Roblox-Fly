@@ -267,58 +267,119 @@ builders.Core = function(model, mat, color, rng)
 	return main
 end
 
--- Tall hot-air balloon: teardrop envelope with gore seams, a colour belt, crown and
--- a brass mouth ring rigged down onto the mast below. Most of it sits above the
--- cell centre so the crew walks underneath.
--- opts.trim = the stripe colour players picked (otherwise one that contrasts the envelope)
+-- Hot-air balloon envelope: a teardrop sewn from GORES vertical gores, each cut into
+-- bands between the rings below, so it reads as real cloth panels rather than a blob.
+-- {height above the envelope centre, radius}, crown to throat. Rings sit closer where the
+-- envelope tapers fastest, so each flat panel stays close to the curve. The crown cap
+-- covers the hole above the first ring.
+local ENVELOPE = {
+	{ 7.0, 2.9 },
+	{ 6.2, 4.2 },
+	{ 5.0, 5.3 },
+	{ 3.2, 6.1 },
+	{ 1.0, 6.45 },
+	{ -1.6, 6.25 },
+	{ -4.2, 5.25 },
+	{ -6.4, 3.95 },
+	{ -8.4, 2.6 },
+	{ -10.0, 1.55 },
+}
+local GORES = 10 -- keep it even so the gores alternate cleanly
+local BELT_BAND = 3 -- this band of panels wears the stripe colour
+local ENVELOPE_Y = 5.0 + BALLOON_LIFT -- envelope centre above the cell centre
+-- odd scraps of cloth for the sewn-on patches
+local PATCH_SCRAPS = { Color3.fromRGB(176, 140, 96), Color3.fromRGB(92, 118, 150), Color3.fromRGB(150, 160, 120) }
+
+local function envelopePoint(ring, angle)
+	local r = ENVELOPE[ring]
+	return Vector3.new(math.cos(angle) * r[2], ENVELOPE_Y + r[1], math.sin(angle) * r[2])
+end
+
+-- The flat panel between rings `band` and `band + 1`, gores gore-1 to gore (as fractions of
+-- a turn), pushed `lift` studs outward. Returns its CFrame (X across, Y up the gore) and size.
+-- A panel is as wide as the band's narrow end, so neighbours never overlap; `full` gives
+-- the band's full width instead (for the seam backing that fills the gaps).
+local function goreFrame(gore, band, lift, full)
+	local a0, a1 = (gore - 1) / GORES * math.pi * 2, gore / GORES * math.pi * 2
+	local A, B = envelopePoint(band, a0), envelopePoint(band, a1)
+	local C, D = envelopePoint(band + 1, a0), envelopePoint(band + 1, a1)
+	local top, bottom = (A + B) / 2, (C + D) / 2
+	local up = (top - bottom).Unit
+	local across = ((B - A) + (D - C)).Unit
+	local out = up:Cross(across)
+	local wTop, wBottom = (B - A).Magnitude, (D - C).Magnitude
+	local width = full and math.max(wTop, wBottom) or math.min(wTop, wBottom) * 0.99
+	-- front panels run a touch long so bands meet without a crack; the backing stays inside
+	-- its band or it pokes out where the envelope bends
+	local size = Vector3.new(width, (top - bottom).Magnitude * (full and 0.98 or 1.05), 0.12)
+	return CFrame.fromMatrix((top + bottom) / 2 + out * lift, across, up), size
+end
+
+-- Tall hot-air balloon, most of it high above the cell so the crew walks underneath:
+-- gored envelope, crown cap and vent, a cloth skirt and brass mouth ring, then long tethers
+-- down to a load ring on the mast top.
+-- opts.trim = the stripe colour players picked (otherwise one that contrasts the envelope).
+-- The stripe colours one band of panels, the crown and the skirt.
 builders.Balloon = function(model, mat, color, rng, opts)
-	local L = BALLOON_LIFT
-	local main = skin(newPart("Part", { Size = Vector3.new(13, 15.4, 13), CanCollide = false }), mat, color, true)
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = main
-	main.CFrame = CFrame.new(0, 5.0 + L, 0)
-	main.Parent = model
 	local fabric = Enum.Material.Fabric
-	local seamColor = shade(color, 0.7)
+	local seamColor = shade(color, 0.55)
 	local lum = color.R * 0.3 + color.G * 0.59 + color.B * 0.11
 	local trim = opts and opts.trim
 	local beltColor = trim or (lum > 0.55 and RED or CREAM)
-	-- tapering neck
-	egg(model, main, Vector3.new(7.2, 7.2, 7.2), CFrame.new(0, -1.6 + L, 0), { Material = fabric, Color = color })
-	-- gore seams running top to bottom
-	for i = 0, 3 do
-		egg(
-			model,
-			main,
-			Vector3.new(0.26, 15.5, 13.1),
-			CFrame.new(0, 5.0 + L, 0) * CFrame.Angles(0, math.rad(45 * i), 0),
-			{ Material = fabric, Color = seamColor }
-		)
+	-- hidden core well inside the envelope: it's what raycasts hit (tools, repairs)
+	local main =
+		skin(newPart("Part", { Size = Vector3.new(10.8, 12.0, 10.8), CanCollide = false }), mat, seamColor, true)
+	local mesh = Instance.new("SpecialMesh")
+	mesh.MeshType = Enum.MeshType.Sphere
+	mesh.Parent = main
+	main.CFrame = CFrame.new(0, ENVELOPE_Y + 0.4, 0)
+	main.Parent = model
+	for band = 1, #ENVELOPE - 1 do
+		local base = band == BELT_BAND and beltColor or color
+		for gore = 1, GORES do
+			-- the gore panel: alternate gores a shade darker, and no two panels quite the same tone
+			local cf, size = goreFrame(gore, band, 0)
+			local tone = (gore % 2 == 0 and 0.86 or 1) * (0.95 + rng:NextNumber() * 0.1)
+			decor(model, main, "Part", { Size = size, Material = fabric, Color = shade(base, tone) }, cf)
+			-- darker backing just behind it, full width: the slivers between gores read as seams
+			local backCF, backSize = goreFrame(gore, band, -0.14, true)
+			decor(model, main, "Part", { Size = backSize, Material = fabric, Color = shade(base, 0.74) }, backCF)
+		end
 	end
-	-- equator seam, colour belt and crown
-	egg(model, main, Vector3.new(13.1, 0.3, 13.1), CFrame.new(0, 5.0 + L, 0), { Material = fabric, Color = seamColor })
-	cyl(model, main, 1.1, 11.4, CFrame.new(0, 8.8 + L, 0) * VERTICAL, { Material = fabric, Color = beltColor })
+	-- crown cap with a brass vent on top
+	local crownY = ENVELOPE_Y + ENVELOPE[1][1]
 	egg(
 		model,
 		main,
-		Vector3.new(4.4, 1.6, 4.4),
-		CFrame.new(0, 12.4 + L, 0),
+		Vector3.new(6.4, 1.6, 6.4),
+		CFrame.new(0, crownY + 0.15, 0),
 		{ Material = fabric, Color = trim or seamColor }
 	)
-	-- mouth ring, then long tethers down to a load ring on the mast top
 	cyl(
 		model,
 		main,
-		0.45,
-		3.2,
-		CFrame.new(0, -5.0 + L, 0) * VERTICAL,
+		0.3,
+		2.2,
+		CFrame.new(0, crownY + 0.85, 0) * VERTICAL,
 		{ Material = Enum.Material.Metal, Color = BRASS }
 	)
+	ball(model, main, 0.7, CFrame.new(0, crownY + 1.1, 0), { Material = Enum.Material.Metal, Color = BRASS })
+	-- skirt and mouth ring at the throat
+	local throatY = ENVELOPE_Y + ENVELOPE[#ENVELOPE][1]
+	cyl(model, main, 1.0, 3.4, CFrame.new(0, throatY - 0.3, 0) * VERTICAL, { Material = fabric, Color = beltColor })
+	cyl(
+		model,
+		main,
+		0.4,
+		3.7,
+		CFrame.new(0, throatY - 0.85, 0) * VERTICAL,
+		{ Material = Enum.Material.Metal, Color = BRASS }
+	)
+	-- long tethers down to the load ring on the mast top
 	cyl(model, main, 0.35, 1.3, CFrame.new(0, -1.7, 0) * VERTICAL, { Material = Enum.Material.Metal, Color = IRON })
 	for i = 0, 3 do
 		local a = math.rad(90 * i + 45)
-		local top = Vector3.new(math.cos(a) * 1.5, -5.2 + L, math.sin(a) * 1.5)
+		local top = Vector3.new(math.cos(a) * 1.6, throatY - 1.0, math.sin(a) * 1.6)
 		local bottom = Vector3.new(math.cos(a) * 0.5, -1.7, math.sin(a) * 0.5)
 		local mid = (top + bottom) / 2
 		decor(
@@ -332,20 +393,33 @@ builders.Balloon = function(model, mat, color, rng, opts)
 	-- crew work on the balloon (repairs) from down here at the load ring
 	local reach = Instance.new("Attachment")
 	reach.Name = "PromptPoint"
-	reach.Position = Vector3.new(0, -1.7 - (5.0 + L), 0)
+	reach.Position = Vector3.new(0, -1.7 - main.CFrame.Y, 0)
 	reach.Parent = main
-	-- the odd sewn-on patch for that patchwork look
+	-- now and then a sewn-on patch, for that patchwork look
 	if rng:NextNumber() < 0.5 then
-		local side = rng:NextNumber() < 0.5 and -1 or 1
-		local patchColor = shade(color, rng:NextNumber() < 0.5 and 0.78 or 1.15)
-		local p = decor(
-			model,
-			main,
-			"Part",
-			{ Size = Vector3.new(0.16, 2.6, 2.8) },
-			CFrame.new(side * 6.52, 6.2 + L, rng:NextNumber(-0.7, 0.7)) * CFrame.Angles(0, 0, math.rad(7.6 * side))
-		)
-		skin(p, mat, patchColor, true)
+		local cf, size = goreFrame(rng:NextInteger(1, GORES), rng:NextInteger(BELT_BAND + 1, BELT_BAND + 3), 0.1)
+		local patch = cf * CFrame.new(rng:NextNumber(-0.25, 0.25), rng:NextNumber(-0.3, 0.3), 0)
+		local w, h = size.X * 0.62, math.min(size.Y * 0.5, 1.9)
+		decor(model, main, "Part", {
+			Size = Vector3.new(w, h, 0.1),
+			Material = fabric,
+			Color = rng:NextNumber() < 0.6 and PATCH_SCRAPS[rng:NextInteger(1, #PATCH_SCRAPS)] or shade(color, 0.72),
+		}, patch)
+		-- stitching round the edge
+		for _, edge in ipairs({
+			{ 0, h / 2, w, 0.07 },
+			{ 0, -h / 2, w, 0.07 },
+			{ w / 2, 0, 0.07, h },
+			{ -w / 2, 0, 0.07, h },
+		}) do
+			decor(
+				model,
+				main,
+				"Part",
+				{ Size = Vector3.new(edge[3], edge[4], 0.12), Material = fabric, Color = seamColor },
+				patch * CFrame.new(edge[1], edge[2], -0.02) -- -Z is outward on a gore frame
+			)
+		end
 	end
 	return main
 end
@@ -1324,30 +1398,41 @@ end
 -- Extra dressing for pieces upgraded with a discovered reinforcement (PartTypes.Reinforce).
 local reinforceLook = {}
 reinforceLook.Balloon = function(model, main)
-	-- iron hoops round the envelope (radii 6.5 x 7.7, centred at y 5) ...
-	local L = BALLOON_LIFT
-	for _, dy in ipairs({ -4.4, -1.6, 2.4, 5.4 }) do
-		local r = 6.5 * math.sqrt(1 - (dy / 7.7) ^ 2)
+	-- iron hoops round the envelope at four of its rings (flat discs: only the rim shows) ...
+	for _, ring in ipairs({ 3, 5, 7, 8 }) do
+		local r = ENVELOPE[ring]
 		egg(
 			model,
 			main,
-			Vector3.new(r * 2 + 0.35, 0.5, r * 2 + 0.35),
-			CFrame.new(0, 5.0 + L + dy, 0),
+			Vector3.new(r[2] * 2 + 0.4, 0.45, r[2] * 2 + 0.4),
+			CFrame.new(0, ENVELOPE_Y + r[1], 0),
 			{ Material = Enum.Material.Metal, Color = IRON }
 		)
 	end
-	-- ... tied together by a rope net
-	for i = 0, 3 do
-		egg(
-			model,
-			main,
-			Vector3.new(0.18, 15.7, 13.25),
-			CFrame.new(0, 5.0 + L, 0) * CFrame.Angles(0, math.rad(22.5 + 45 * i), 0),
-			{ Material = Enum.Material.Fabric, Color = ROPE }
-		)
+	-- ... tied together by a rope net down every other gore seam
+	for seam = 0, GORES - 1, 2 do
+		local a = seam / GORES * math.pi * 2
+		for ring = 1, #ENVELOPE - 1 do
+			local p0 = envelopePoint(ring, a) * Vector3.new(1.03, 1, 1.03)
+			local p1 = envelopePoint(ring + 1, a) * Vector3.new(1.03, 1, 1.03)
+			local mid = (p0 + p1) / 2
+			decor(model, main, "Part", {
+				Size = Vector3.new(0.2, 0.2, (p1 - p0).Magnitude + 0.15),
+				Material = Enum.Material.Fabric,
+				Color = ROPE,
+			}, CFrame.lookAt(mid, p1))
+		end
 	end
 	-- a heavier brass mouth ring
-	cyl(model, main, 0.8, 4.2, CFrame.new(0, -4.6 + L, 0) * VERTICAL, { Material = Enum.Material.Metal, Color = BRASS })
+	local throatY = ENVELOPE_Y + ENVELOPE[#ENVELOPE][1]
+	cyl(
+		model,
+		main,
+		0.8,
+		4.4,
+		CFrame.new(0, throatY - 0.85, 0) * VERTICAL,
+		{ Material = Enum.Material.Metal, Color = BRASS }
+	)
 end
 
 -- opts.reinforced = add the reinforcement look (if the piece has one)
